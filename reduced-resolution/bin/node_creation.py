@@ -1,5 +1,4 @@
 import numpy
-import pandas
 
 
 """
@@ -45,49 +44,13 @@ def add_externals(node_association, circ, proj):
         node_association[external_gids] = str_external
 
 
-def region_volumes(circ, lst_regions):
-    out = {}
-    reg_map = circ.atlas.load_region_map()
-    annotations = circ.atlas.load_data("brain_regions")
-    for reg in lst_regions:
-        out[reg] = annotations.volume(reg_map.find(reg, 'acronym', with_descendants=True))
-    return out
-
-
-def fm_pixel_volumes(fm, subsample):
-    print("Calculating pixel volumes...")
-    fmraw = numpy.floor(fm.raw.reshape((-1, 2)) / subsample).astype(int)
-    raw_volumes = pandas.DataFrame(fmraw, columns=["x", "y"]).value_counts() * fm.voxel_volume
-    reg_volumes = dict(zip(raw_volumes.index.values, raw_volumes.values))
-    reg_volumes[str_void] = 1
-    reg_volumes[str_external] = 1
-    return reg_volumes
-
-
-def nodes_by_brain_region(circ, dict_constraints, proj=None):
-    """
-    Creates a node association where one node exist per brain region.
-    """
-    print("Looking up neuron regions...")
-    node_assoc = circ.cells.get(properties='region')
+def make_nodes(circ, dict_constraints, proj, node_method, **node_kwargs):
+    import importlib
+    node_func = importlib.import_module(node_method)
+    node_assoc, node_vol = node_func.make_nodes(circ, proj=proj, **node_kwargs)
     invalidate_invalids(node_assoc, circ, dict_constraints)
     add_externals(node_assoc, circ, proj)
-    print("Calculating region volumes...")
-    reg_volumes = region_volumes(circ, node_assoc.drop_duplicates().values)
-    return node_assoc, reg_volumes
-
-
-def nodes_by_fm_pixels(circ, dict_constraints, flatmap_fn=None, proj=None, subsample=2):
-    """
-    Creates a node association where one node exists per n x n block of flatmap pixels (n=subsample)
-    """
-    import voxcell
-    print("Looking up neuron flat locations...")
-    fm = voxcell.VoxelData.load_nrrd(flatmap_fn)
-    xyz = circ.cells.get(properties=["x", "y", "z"])
-    node_assoc = pandas.Series(map(tuple, numpy.floor(fm.lookup(xyz.values) / subsample).astype(int)),
-                               index=xyz.index)
-    invalidate_invalids(node_assoc, circ, dict_constraints)
-    add_externals(node_assoc, circ, proj)
-    pxl_volumes = fm_pixel_volumes(fm, subsample)
-    return node_assoc, pxl_volumes
+    if str_void not in node_vol:
+        node_vol[str_void] = 1.0
+    if str_external not in node_vol:
+        node_vol[str_external] = 1.0

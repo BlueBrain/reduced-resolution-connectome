@@ -4,8 +4,10 @@ import h5py
 import pandas
 from tqdm import tqdm
 
-from .create_nodes import str_external, str_void
-from .create_nodes import nodes_by_fm_pixels, nodes_by_brain_region
+import importlib
+
+node_commons = importlib.import_module("node_creation")
+str_void = node_commons.str_void
 
 
 def synapses_region_counts(h5, reg_lookup, chunks=10000):
@@ -29,7 +31,7 @@ def synapses_region_counts(h5, reg_lookup, chunks=10000):
     return counts
 
 
-def count(circ, dict_constraints, projection=None, flatmap=None):
+def count(circ, dict_constraints, node_method, node_kwargs, projection=None):
     if projection is None:
         h5 = h5py.File(circ.config["connectome"], "r")['edges/default']
         proj = None
@@ -38,10 +40,8 @@ def count(circ, dict_constraints, projection=None, flatmap=None):
         proj = circ.projection(projection)
         h5 = h5py.File(proj.metadata["Path"], "r")['edges/default']
 
-    if flatmap is None:
-        node_assoc, node_vol = nodes_by_brain_region(circ, dict_constraints, proj=proj)
-    else:
-        node_assoc, node_vol = nodes_by_fm_pixels(circ, dict_constraints, flatmap_fn=flatmap, proj=proj)
+    node_assoc, node_vol = node_commons.make_nodes(circ, dict_constraints, proj, node_method, **node_kwargs)
+
     raw_counts = synapses_region_counts(h5, node_assoc, chunks=5000000)
     idx_tgt = raw_counts.index.names.index("Target node")
     for reg_tuple in raw_counts.index:
@@ -56,19 +56,26 @@ def main():
     import sys
     import bluepy
     import getopt
+    import json
 
-    opts, args = getopt.getopt(sys.argv[1:], "o:p:f:")
-    opts = dict(opts)
+    opts, args = getopt.getopt(sys.argv[1:], "")
+
     if len(args) != 1:
-        print("Usage: {0} (-p projection_name) (-o output_filename) CircuitConfig".format(__file__))
+        print("Usage: {0} config.json CircuitConfig".format(__file__))
         sys.exit(2)
-    fn_circ = args[0]
-    fn_out = opts.get("-o", None)
-    proj_name = opts.get("-p", None)
-    flatmap = opts.get("-f", None)
+    fn_circ = args[1]
+    fn_cfg = args[0]
+    with open(fn_cfg, "r") as fid:
+        cfg = json.load(fid)
+
+    fn_out = cfg.get("output_filename", None)
+    node_method = cfg.get("node_method", {"function": "nodes_by_region", "kwargs": {}})
+    proj_name = cfg.get("projection", None)
+    neuron_constraints = cfg.get("constraints", {"synapse_class": "EXC"})
 
     circ = bluepy.Circuit(fn_circ)
-    res = count(circ, {"synapse_class": "EXC"}, projection=proj_name, flatmap=flatmap)  # hard coded here.
+    res = count(circ, neuron_constraints, node_method["function"], node_method.get("kwargs", {}),
+                projection=proj_name)
     if fn_out is None:
         print(res)
     else:
