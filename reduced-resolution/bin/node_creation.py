@@ -46,11 +46,18 @@ def add_externals(node_association, circ, proj):
 
 def make_nodes(circ, dict_constraints, proj, node_method, **node_kwargs):
     import importlib
+    import pandas
     node_func = importlib.import_module(node_method)
     node_assoc, node_vol = node_func.make_nodes(circ, proj=proj, **node_kwargs)
+    if isinstance(node_assoc.dtype, pandas.core.dtypes.dtypes.CategoricalDtype):
+        node_assoc = pandas.Series(node_assoc.values.add_categories([str_void, str_external]),
+                                   index=node_assoc.index)
+
     invalidate_invalids(node_assoc, circ, dict_constraints)
     add_externals(node_assoc, circ, proj)
     if str_void not in node_vol:
         node_vol[str_void] = 1.0
     if str_external not in node_vol:
         node_vol[str_external] = 1.0
+
+    return node_assoc, node_vol

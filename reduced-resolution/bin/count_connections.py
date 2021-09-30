@@ -60,7 +60,7 @@ def main():
 
     opts, args = getopt.getopt(sys.argv[1:], "")
 
-    if len(args) != 1:
+    if len(args) != 2:
         print("Usage: {0} config.json CircuitConfig".format(__file__))
         sys.exit(2)
     fn_circ = args[1]
