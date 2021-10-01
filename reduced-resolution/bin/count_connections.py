@@ -10,7 +10,7 @@ node_commons = importlib.import_module("node_creation")
 str_void = node_commons.str_void
 
 
-def synapses_region_counts(h5, reg_lookup, chunks=10000):
+def synapse_counts_complete(h5, reg_lookup, chunks=10000):
     L = h5['source_node_id'].shape[0]
     splits = numpy.arange(0, L + chunks, chunks)
 
@@ -31,6 +31,28 @@ def synapses_region_counts(h5, reg_lookup, chunks=10000):
     return counts
 
 
+def synapse_counts_subtarget(h5, reg_lookup):
+    midxx = pandas.MultiIndex.from_tuples([], names=["Source node", "Target node"])
+    counts = pandas.Series([], index=midxx, dtype=int)
+
+    reg_lookup = reg_lookup[reg_lookup != str_void]
+
+    for gid in tqdm.tqdm(reg_lookup.index):
+        rnge = h5["indices"]["target_to_source"]["node_id_to_ranges"][gid - 1]
+        for r in h5["indices"]["target_to_source"]["range_to_edge_id"][rnge[0]:rnge[1]]:
+            son_idx_fr = h5["source_node_id"][r[0]:r[1]]
+            son_idx_to = h5["target_node_id"][r[0]:r[1]]
+            reg_fr = reg_lookup[son_idx_fr + 1]
+            reg_to = reg_lookup[son_idx_to + 1]
+            new_counts = pandas.DataFrame({"Source node": reg_fr.values,
+                                           "Target node": reg_to.values}).value_counts()
+            counts = counts.add(new_counts, fill_value=0)
+    for lvl, nm in zip(counts.index.levels, counts.index.names):
+        if str_void in lvl:
+            counts = counts.drop(str_void, level=nm)
+    return counts
+
+
 def count(circ, dict_constraints, node_method, node_kwargs, projection=None):
     if projection is None:
         h5 = h5py.File(circ.config["connectome"], "r")['edges/default']
@@ -42,7 +64,13 @@ def count(circ, dict_constraints, node_method, node_kwargs, projection=None):
 
     node_assoc, node_vol = node_commons.make_nodes(circ, dict_constraints, proj, node_method, **node_kwargs)
 
-    raw_counts = synapses_region_counts(h5, node_assoc, chunks=5000000)
+    if (node_assoc == "_VOID").mean() > 0.5:
+        print("For subtarget...")
+        raw_counts = synapse_counts_subtarget(h5, node_assoc)
+    else:
+        print("For all neurons...")
+        raw_counts = synapse_counts_complete(h5, node_assoc, chunks=5000000)
+
     idx_tgt = raw_counts.index.names.index("Target node")
     for reg_tuple in raw_counts.index:
         raw_counts[reg_tuple] /= node_vol[reg_tuple[idx_tgt]]

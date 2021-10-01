@@ -86,5 +86,6 @@ def make_nodes(circ, target=None, proj=None, flatmap_fn=None, subsample=2, super
         pxl_volumes = fm_pixel_volumes_subsampled(fm, 1)
 
     # node_assoc = node_assoc.apply(tuple, result_type="reduce", axis=1)  next line is faster
-    node_assoc = pandas.Series(map(tuple, node_assoc.values), index=node_assoc.index)
+    node_assoc = pandas.Series(map(tuple, node_assoc.values), index=node_assoc.index).apply(str)
+    node_assoc = pandas.Series(pandas.Categorical(node_assoc.values), index=node_assoc.index)
     return node_assoc, pxl_volumes

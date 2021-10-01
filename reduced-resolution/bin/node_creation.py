@@ -58,7 +58,8 @@ def add_externals(node_association, circ, proj):
 def print_association_stats(node_assoc):
     print("Received node associations for {0} neurons...".format(len(node_assoc)))
     vc = node_assoc.value_counts()
-    print("Neurons per value: {0} +- {1}".format(vc.mean(), vc.std()))
+    print("Number of nodes: {0}".format(len(node_assoc.drop_duplicates())))
+    print("Neurons per value: {0} ({1}) +- {2}".format(vc.mean(), vc.median(), vc.std()))
 
 
 def make_nodes(circ, dict_constraints, proj, node_method, **node_kwargs):
