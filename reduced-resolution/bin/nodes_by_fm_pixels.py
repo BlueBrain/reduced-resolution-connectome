@@ -14,6 +14,7 @@ def fm_pixel_volumes_subsampled(fm, n_subsampled):
 
 
 def fm_pixel_volumes_supersampled(fm, node_assoc, n_supersampled):
+    print("Calculating pixel volumes...")
     fmraw = numpy.floor(fm.raw.reshape((-1, 2))).astype(int)
     raw_volumes = pandas.DataFrame(fmraw, columns=["fx", "fy"]).value_counts() * fm.voxel_volume
     u_C = node_assoc.drop_duplicates()
@@ -54,8 +55,6 @@ def supersampled_flat_coords(circ, target, fm, orient, n_supersampled):
         lcl_xyz = pxl_xyz - pxl_xyz.mean(axis=0)
         o_vec = orient.lookup(pxl_xyz.mean(axis=0).values)
         ss_coords.loc[idxx] = supersample_pixel(lcl_xyz, o_vec, n_supersampled)
-    print(ss_coords.min(axis=0))
-    print(ss_coords.max(axis=0))
     node_assoc = flat_coords * n_supersampled + ss_coords
     return node_assoc
 

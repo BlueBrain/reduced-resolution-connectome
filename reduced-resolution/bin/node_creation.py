@@ -1,4 +1,5 @@
 import numpy
+import pandas
 
 
 """
@@ -38,14 +39,20 @@ def invalidate_invalids(node_association, circ, dict_constraints):
     # Step 2: Set value for neurons not contained in the association Series to str_void
     all_gids = circ.cells.ids()
     non_listed = numpy.setdiff1d(all_gids, node_association.index.values)
-    node_association[non_listed] = str_void
+    node_association = pandas.concat([node_association,
+                                      pandas.Series([str_void] * len(non_listed),
+                                                    index=non_listed)], axis=0)
+    return node_association
 
 
 def add_externals(node_association, circ, proj):
     if proj is not None:
         proj_gids = circ.cells.ids(proj.metadata["Source"])
         external_gids = proj_gids[~numpy.in1d(proj_gids, node_association.index)]
-        node_association[external_gids] = str_external
+        node_association = pandas.concat([node_association,
+                                          pandas.Series([str_external] * len(external_gids),
+                                                        index=external_gids)], axis=0)
+    return node_association
 
 
 def print_association_stats(node_assoc):
@@ -64,8 +71,9 @@ def make_nodes(circ, dict_constraints, proj, node_method, **node_kwargs):
         node_assoc = pandas.Series(node_assoc.values.add_categories([str_void, str_external]),
                                    index=node_assoc.index)
 
-    invalidate_invalids(node_assoc, circ, dict_constraints)
-    add_externals(node_assoc, circ, proj)
+    print_association_stats(node_assoc)
+    node_assoc = invalidate_invalids(node_assoc, circ, dict_constraints)
+    node_assoc = add_externals(node_assoc, circ, proj)
     if str_void not in node_vol:
         node_vol[str_void] = 1.0
     if str_external not in node_vol:
