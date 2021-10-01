@@ -8,12 +8,12 @@ def region_volumes(circ, lst_regions):
     return out
 
 
-def make_nodes(circ, proj=None):
+def make_nodes(circ, target=None, proj=None):
     """
     Creates a node association where one node exist per brain region.
     """
     print("Looking up neuron regions...")
-    node_assoc = circ.cells.get(properties='region')
+    node_assoc = circ.cells.get(group=target, properties='region')
     print("Calculating region volumes...")
     reg_volumes = region_volumes(circ, node_assoc.drop_duplicates().values)
     return node_assoc, reg_volumes

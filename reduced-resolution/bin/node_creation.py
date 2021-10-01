@@ -19,10 +19,10 @@ str_void = "_VOID"
 str_external = "EXTERNAL"
 
 
-def constrain_neurons(circ, dict_constraints):
+def constrain_neurons(gids, circ, dict_constraints):
     keys = list(dict_constraints.keys())
-    props = circ.cells.get(properties=keys)
-    valid = numpy.ones(len(props), dtype=bool)
+    props = circ.cells.get(gids, properties=keys)
+    valid = numpy.ones(len(gids), dtype=bool)
     for k, v in dict_constraints.items():
         if isinstance(v, list):
             valid = valid & numpy.in1d(props[k].values, v)
@@ -32,9 +32,13 @@ def constrain_neurons(circ, dict_constraints):
 
 
 def invalidate_invalids(node_association, circ, dict_constraints):
-    valid = constrain_neurons(circ, dict_constraints)
-    # TODO: Used as a boolean index here. Must be in the same order! Should be checked
+    # Step 1: Set value for neurons not matching the filters to str_void
+    valid = constrain_neurons(node_association.index.values, circ, dict_constraints)
     node_association[~valid] = str_void
+    # Step 2: Set value for neurons not contained in the association Series to str_void
+    all_gids = circ.cells.ids()
+    non_listed = numpy.setdiff1d(all_gids, node_association.index.values)
+    node_association[non_listed] = str_void
 
 
 def add_externals(node_association, circ, proj):
@@ -44,11 +48,18 @@ def add_externals(node_association, circ, proj):
         node_association[external_gids] = str_external
 
 
+def print_association_stats(node_assoc):
+    print("Received node associations for {0} neurons...".format(len(node_assoc)))
+    vc = node_assoc.value_counts()
+    print("Neurons per value: {0} +- {1}".format(vc.mean(), vc.std()))
+
+
 def make_nodes(circ, dict_constraints, proj, node_method, **node_kwargs):
     import importlib
     import pandas
+    base_tgt = dict_constraints.pop("target", None)
     node_func = importlib.import_module(node_method)
-    node_assoc, node_vol = node_func.make_nodes(circ, proj=proj, **node_kwargs)
+    node_assoc, node_vol = node_func.make_nodes(circ, target=base_tgt, proj=proj, **node_kwargs)
     if isinstance(node_assoc.dtype, pandas.core.dtypes.dtypes.CategoricalDtype):
         node_assoc = pandas.Series(node_assoc.values.add_categories([str_void, str_external]),
                                    index=node_assoc.index)
