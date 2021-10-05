@@ -26,7 +26,7 @@ def constrain_mask(gids, circ, mask_dict):
     if "root" in mask_dict:
         import os
         if mask_dict["root"] == "_atlas":
-            pass # circ.atlas.dir_path?
+            raise NotImplementedError()  # circ.atlas.dir_path?
         else:
             fn = os.path.join(mask_dict["root"], fn)
     msk = voxcell.VoxelData.load_nrrd(fn)
