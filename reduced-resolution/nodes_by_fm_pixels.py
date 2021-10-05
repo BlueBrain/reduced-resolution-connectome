@@ -40,8 +40,13 @@ def supersample_pixel(lcl_xyz, o_vec, nbins):
     return numpy.vstack([Ox, Oz]).transpose()
 
 
-def supersampled_flat_coords(circ, target, fm, orient, n_supersampled):
+def supersampled_flat_coords(circ, target, fm, orient, n_supersampled, volume_mask=None):
     xyz = circ.cells.get(group=target, properties=['x', 'y', 'z'])
+    if volume_mask is not None:
+        import voxcell
+        msk = voxcell.VoxelData.load_nrrd(volume_mask)
+        xyz = xyz.loc[msk.lookup(xyz.values)]
+
     flat_coords = pandas.DataFrame(fm.lookup(xyz.values), columns=["fx", "fy"], index=xyz.index)
     flat_lo = pandas.Series(flat_coords.index, index=pandas.MultiIndex.from_frame(flat_coords))
     per_pixel_lo = flat_lo.groupby(["fx", "fy"]).apply(list)
@@ -59,14 +64,19 @@ def supersampled_flat_coords(circ, target, fm, orient, n_supersampled):
     return node_assoc
 
 
-def subsampled_flat_coords(circ, target, fm, n_subsampled):
+def subsampled_flat_coords(circ, target, fm, n_subsampled, volume_mask=None):
     xyz = circ.cells.get(group=target, properties=["x", "y", "z"])
+    if volume_mask is not None:
+        import voxcell
+        msk = voxcell.VoxelData.load_nrrd(volume_mask)
+        xyz = xyz.loc[msk.lookup(xyz.values)]
     node_assoc = pandas.DataFrame(numpy.floor(fm.lookup(xyz.values) / n_subsampled).astype(int),
                                   index=xyz.index, columns=["fx", "fy"])
     return node_assoc
 
 
-def make_nodes(circ, target=None, proj=None, flatmap_fn=None, subsample=2, supersample=None):
+def make_nodes(circ, target=None, volume_mask=None, proj=None,
+               flatmap_fn=None, subsample=2, supersample=None):
     """
     Creates a node association where one node exists per n x n block of flatmap pixels (n=subsample)
     """
@@ -76,13 +86,13 @@ def make_nodes(circ, target=None, proj=None, flatmap_fn=None, subsample=2, super
     fm = voxcell.VoxelData.load_nrrd(flatmap_fn)
     if supersample is not None:
         orient = circ.atlas.load_data("orientation")
-        node_assoc = supersampled_flat_coords(circ, target, fm, orient, supersample)
+        node_assoc = supersampled_flat_coords(circ, target, fm, orient, supersample, volume_mask=volume_mask)
         pxl_volumes = fm_pixel_volumes_supersampled(fm, node_assoc, supersample)
     elif subsample is not None:
-        node_assoc = subsampled_flat_coords(circ, target, fm, subsample)
+        node_assoc = subsampled_flat_coords(circ, target, fm, subsample, volume_mask=volume_mask)
         pxl_volumes = fm_pixel_volumes_subsampled(fm, subsample)
     else:
-        node_assoc = subsampled_flat_coords(circ, target, fm, 1)
+        node_assoc = subsampled_flat_coords(circ, target, fm, 1, volume_mask=volume_mask)
         pxl_volumes = fm_pixel_volumes_subsampled(fm, 1)
 
     # node_assoc = node_assoc.apply(tuple, result_type="reduce", axis=1)  next line is faster
