@@ -20,12 +20,28 @@ str_void = "_VOID"
 str_external = "EXTERNAL"
 
 
+def constrain_mask(gids, circ, mask_dict):
+    import voxcell
+    fn = mask_dict["file"]
+    if "root" in mask_dict:
+        import os
+        if mask_dict["root"] == "_atlas":
+            pass # circ.atlas.dir_path?
+        else:
+            fn = os.path.join(mask_dict["root"], fn)
+    msk = voxcell.VoxelData.load_nrrd(fn)
+    msk_vals = msk.lookup(circ.cells.get(gids, properties=["x", "y", "z"]).values)
+    return msk_vals
+
+
 def constrain_neurons(gids, circ, dict_constraints):
     keys = list(dict_constraints.keys())
     props = circ.cells.get(gids, properties=keys)
     valid = numpy.ones(len(gids), dtype=bool)
     for k, v in dict_constraints.items():
-        if isinstance(v, list):
+        if k == "mask":
+            valid = valid & constrain_mask(gids, circ, v)
+        elif isinstance(v, list):
             valid = valid & numpy.in1d(props[k].values, v)
         else:
             valid = valid & (props[k].values == v)
