@@ -73,3 +73,7 @@ If not specified, then the entire atlas volume will be considered.
   - xz_orientation: (Optional, default: [1, 0]): Specifies the angle at which the x- and z-coordinates are flattened (coordinates that are largely parallel to the layers).
 This can be thought of as the angle at which you "slice" the volume. For example, the default value of [1, 0] will use the x-coordinate and discard the z-coordinate.
   - resolution: (Optional, default: 25.0): Resolution in um at which to bin the resulting "sideway" coordinates.
+
+# Funding & Acknowledgment
+This development is supported by funding to the Blue Brain Project, a research center of the École polytechnique fédérale de Lausanne (EPFL), from the Swiss government's ETH Board of the Swiss Federal Institutes of Technology.
+Copyright © 2024 Blue Brain Project/EPFL
